@@ -1,0 +1,283 @@
+---
+title: "CaseStudy1:Cyclistic"
+author: "N hkang Zau Jun"
+date: "2023-06-19"
+output: html_document
+---
+
+# Google Data Analytics : Capstone Case Study
+
+## Cyclistic Bike-Share Analysis
+
+This analysis serves as the capstone project for the Google Data Analytics Professional Certificate offered through Coursera. It showcases the culmination of knowledge gained throughout the course . The R markdown here will showcase my skills in R programming, SQL query and Tableau.
+
+## ASK
+
+### Introduction:
+
+Cyclistic Bike-Share is one of the leading bike sharing operators or companies based in Chicago. Their bike share program is perfect for commuting, running errands, visiting friends, or exploring the city. Moreover, it inspires an eco-friendly way and culture to get around, coupled with exercise benefits, in an effort to contribute to the preservation of our beautiful environment.
+
+The director of marketing (Moreno) believes the company's future success depends on maximizing the number of annual memberships and is confident that an analysis of the casual riders would reveal insights into potential growth opportunities for the company.
+
+### Business Task:
+
+To analyze historical trip data from Cyclistic in order to gain insights into the distinct usage patterns between annual members and casual riders. By examining user behavior and uncovering trends, valuable insights can be derived to inform the Cyclistic marketing team.
+
+### Business Objectives:
+
+-   How do annual members and casual riders use Cyclistic bikes differently?
+
+### Deliverables:
+
+-   A clear statement of the business task.
+-   A description of all data sources used.
+-   Documentation of any cleaning, transformation or manipulation of data.
+-   A clear summary of analysis.
+-   Supporting visualizations and key findings.
+-   Three recommendations based on the analysis.
+
+### Stakeholders:
+
+-   Moreno: Head of Cyclistic Marketing Team
+
+-   Cyclistic Financial Analysts Team
+
+-   Cyclistic Marketing Team
+
+## PREPARE
+
+### Dataset:
+
+The data set is publicly available on [divvy-tripdata](https://divvy-tripdata.s3.amazonaws.com/index.html), the index of the bucket. The data has been made available by Motivate International Inc, a third-party company.
+
+Data Collected includes: -rideable_type -started_at -ended_at -start_station_name -start_station_id -end_station_name -end_station_id -member_casual
+
+Data was downloaded according to the [data license agreement](https://ride.divvybikes.com/data-license-agreement).
+
+### Dataset Limitations:
+
+-The data utilized was collected during first five months of 2021. Users' bike activities may have evolved since then, potentially influenced by external factors. -Due to the data license agreement, certain parameters may be omitted from the publicly available Divvy system data owned by the City of Chicago. This limitation could impact the accuracy of ouranalysis.
+
+### Data Selection :
+
+The following files are selected and copied for analysis.
+
+-202101-divvy-tripdata -202102-divvy-tripdata -202103-divvy-tripdata -202104-divvy-tripdata -202105-divvy-tripdata
+
+## PROCESS
+
+-Using SQL to process, transform and process the data(Due to limitationin the free version of positCloud Rstudio) -Using R to transform, visualize and documentation(R Markdown). -Using Tableau for further visualization
+
+### Using SQL to put combine all the data:
+
+```{sql, eval= FALSE}
+SELECT *
+FROM `2021Trip.jan_trip`
+UNION ALL SELECT *
+FROM `2021Trip.feb_trip`
+UNION ALL SELECT *
+FROM `2021Trip.mar_trip`
+UNION ALL SELECT *
+FROM `2021Trip.apr_trip`
+UNION ALL SELECT *
+FROM `2021Trip.may_trip`
+```
+
+### Saving the query result and importing into R studio to create visualization
+
+#### Environment Setup
+
+Import Packages:
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(skimr)
+library(dplyr)
+install.packages("knitr")
+library(knitr)
+```
+
+### Import Data
+
+Reading required csv files
+
+```{r}
+type_num_of_cust <- read.csv("type_num_of_cus.csv")
+ridetype_avgduration <- read.csv("average_duration.csv")
+first5mths_trip <- read.csv("1st5mths_trip.csv")
+dayofweek <- read.csv("day_of_week.csv")
+ridetype_by_day <- read.csv("type_by_day.csv")
+station_totaltrips <- read.csv("station_n_total_trips.csv")
+```
+
+## ANALYSIS
+
+Findings 1 to 5 ( Used tools : BigQuery, R programming) and Finding 6 (Used Tools : Tableau, Spreadsheet)
+
+1.Finding out which rideable type each customer category uses the most and least.
+
+2.Finding out how long each rideable type by each customer catergory is being used.
+
+3.Finding which day/days of the week has the highest amount and lowest amount of bike usages
+
+4.Finding out the amount of each customer type's usage of each ridetype by day of week
+
+5.Finding out how different customer category uses each rideable type throughout Saturday, Sunday and Thursday
+
+6.Finding the Most Popular Starting Station, Ending Station and Set of Trips
+
+## SHARE
+
+### 1.Finding out which rideable type each customer category uses the most and least.
+
+```{sql, eval= FALSE}
+SELECT rideable_type,member_casual, COUNT(member_casual) AS num_of_user
+FROM `2021Trip.first_5_mths_trip`
+GROUP BY rideable_type,member_casual
+```
+
+Customer Categories VS Rideable Types VS Number of customer
+
+```{r}
+ggplot(data=type_num_of_cust)+ geom_bar(mapping = aes(x = rideable_type, y = num_of_user, fill = member_casual), stat = "identity", position = "dodge") + xlab("Rideable Type") + ylab("num_of_user") + labs(fill = "member_casual") + scale_y_continuous(labels = function(x) paste0(x / 1000, "k"))
+
+```
+
+### 2.Finding out how long each rideable type by each customer catergory is being used:
+
+```{sql, eval=FALSE}
+SELECT member_casual, rideable_type, 
+  FLOOR(SUM(duration_min) / 60) AS total_duration
+  AVG(duration_min) As average_duration
+FROM (
+  SELECT member_casual, rideable_type, 
+    TIMESTAMP_DIFF(
+      CASE WHEN started_at <= ended_at THEN ended_at
+      ELSE TIMESTAMP_ADD(ended_at, INTERVAL 1 DAY)
+      END, started_at, MINUTE) AS duration_min
+  FROM `acoustic-portal-389005.2021Trip.first_5_mths_trip`
+) subquery
+GROUP BY member_casual, rideable_type
+
+```
+
+Customer Category Vs Rideable Types(AVG Duration)
+
+```{r}
+ggplot(ridetype_avgduration, aes(x = rideable_type, y = average_duration, fill = member_casual)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Rideable Type", y = "Average Duration (minutes)", fill = "Member Type") +
+  ggtitle("Average Duration of Rideable Bikes by Type") +
+  scale_fill_manual(values = c("casual" = "red", "member" = "blue")) +
+  theme_minimal()
+```
+
+### 3.Finding which day/days of the week has the highest amount and lowest amount of bike usages
+
+Using SQL to query the amount of usage in each day of a week
+
+```{sql,eval=FALSE}
+SELECT CASE EXTRACT(DAYOFWEEK FROM TIMESTAMP(started_at))
+    WHEN 1 THEN 'Sunday'
+    WHEN 2 THEN 'Monday'
+    WHEN 3 THEN 'Tuesday'
+    WHEN 4 THEN 'Wednesday'
+    WHEN 5 THEN 'Thursday'
+    WHEN 6 THEN 'Friday'
+    WHEN 7 THEN 'Saturday'
+  END AS day_of_week, COUNT(*) AS usage_count
+FROM `2021Trip.first_5_mths_trip`
+WHERE DATE(TIMESTAMP(started_at)) >= DATE('2021-01-01') AND DATE(TIMESTAMP(started_at)) <= DATE('2021-05-31')
+GROUP BY day_of_week
+ORDER BY usage_count
+
+```
+
+Day of week VS Total Usage
+
+```{r}
+#Arranging the order of days of a week
+dayofweek$day_of_week <- factor(dayofweek$day_of_week, levels = c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"))
+
+#Creating a line graph
+ggplot(dayofweek, aes(x = day_of_week, y = usage_count/1000, group = 1)) +
+  geom_line(color = "steelblue", size = 2) +
+  geom_point(color = "steelblue", size = 4) +
+  scale_y_continuous(labels = function(x) paste0(x, "k")) +  # Divide y-axis values by 1000 and add "k" suffix
+  labs(x = "Day of Week", y = "Usage Count (in thousands)") +
+  ggtitle("Usage Count by Day of Week") +
+  theme_minimal() +
+  coord_cartesian(ylim = c(0, max(dayofweek$usage_count) * 1.1/1000))
+```
+
+### 4.Finding out the amount of each customer type's usage of each ridetype by day of week
+
+Using the same sql but also sorting out by each rideable_type
+
+```{sql, eval=FALSE}
+SELECT rideable_type, 
+  CASE EXTRACT(DAYOFWEEK FROM TIMESTAMP(started_at))
+    WHEN 1 THEN 'Sunday'
+    WHEN 2 THEN 'Monday'
+    WHEN 3 THEN 'Tuesday'
+    WHEN 4 THEN 'Wednesday'
+    WHEN 5 THEN 'Thursday'
+    WHEN 6 THEN 'Friday'
+    WHEN 7 THEN 'Saturday'
+  END AS day_of_week, COUNT(*) AS usage_count
+FROM `2021Trip.first_5_mths_trip`
+WHERE DATE(TIMESTAMP(started_at)) >= DATE('2021-01-01') AND DATE(TIMESTAMP(started_at)) <= DATE('2021-05-31')
+GROUP BY day_of_week, rideable_type
+ORDER BY usage_count
+
+```
+
+Rideable Type VS Day of Week Vs Total Usage
+
+```{r}
+ggplot(ridetype_by_day, aes(x = day_of_week, y = rideable_type, fill = usage_count)) +
+  geom_tile() +
+  labs(x = "Day of Week", y = "Rideable Type", fill = "Usage Count") +
+  ggtitle("Usage Count of Rideable Types by Day of Week") +
+  scale_fill_gradient(low ="skyblue", high = "darkred") +
+  theme_minimal()
+```
+
+### Taking out Saturday, Sunday and Thursday into bar graph
+
+```{r}
+# Filter the data to include only Saturday, Sunday and Thursday
+weekend_data <- ridetype_by_day[ridetype_by_day$day_of_week %in% c("Saturday", "Sunday", "Thursday"), ]
+
+# Create the bar chart
+ggplot(weekend_data, aes(x = day_of_week, y = usage_count, fill = rideable_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(x = "Day of Week", y = "Usage Count", fill = "Rideable Type") +
+  ggtitle("Usage Count of Rideable Types on Weekends + Thursday(lowest)") +
+  theme_minimal()
+```
+
+### 5.Finding out how different customer category uses each rideable type throughout Saturday, Sunday and Thursday
+
+```{r}
+
+# Filter the data to include only Saturday and Sunday
+weekend_data <- ridetype_by_day[ridetype_by_day$day_of_week %in% c("Saturday", "Sunday"), ]
+
+# Create the bar chart separated by customer type and rideable type
+ggplot(weekend_data, aes(x = day_of_week, y = usage_count, fill = rideable_type)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_grid(. ~ member_casual) +
+  labs(x = "Day of Week", y = "Usage Count", fill = "Rideable Type") +
+  ggtitle("Usage Count of Rideable Types by Day of Week") +
+  theme_minimal()
+```
+
+### 6.Using Spreadsheet and Tableau for Finding the Most Popular Starting Station, Ending Station and Set of Trips
+
+To view the Tableau visualization, click [here](https://public.tableau.com/views/MostPopularStartEndStationandTrip/MostPopularStartEndStationandTrip?:language=en-US&:display_count=n&:origin=viz_share_link). ![Most Popular Start/End Station and TrMost Popular Start_End Station and Trip.png.png)
+
+```{r}
+knitr::include_graphics("Most Popular Start_End Station and Trip.png")
+```
